@@ -1,0 +1,1060 @@
+import QtQuick
+import QtQuick.Controls
+import QtQuick.Layouts
+import QtQuick.Window
+
+ApplicationWindow {
+    id: window
+
+    visible: true
+    width: 1440
+    height: 900
+    minimumWidth: 900
+    minimumHeight: 600
+    title: "MPDBee"
+
+    color: "#17191e"
+
+    property color backgroundColor: "#17191e"
+    property color panelColor: "#202329"
+    property color cardColor: "#272a31"
+    property color accentColor: "#e5a84b"
+    property color primaryText: "#f0f0f3"
+    property color secondaryText: "#9b9da8"
+    property color borderColor: "#343741"
+
+    property string searchText: ""
+    property string selectedAlbum: ""
+    property string selectedAlbumArtist: ""
+    property var selectedTracks: []
+
+    property var albums: []
+
+    function normalizeText(value) {
+        return String(value || "").trim()
+    }
+
+    function albumKey(album, artist) {
+        return normalizeText(album) + "||" +
+               normalizeText(artist)
+    }
+
+    function rebuildAlbums() {
+        const source = mpd.albums || []
+
+        albums = source.map(function(item) {
+            const tracks = item.tracks || []
+
+            return {
+                album: item.title || "Unknown Album",
+                artist: item.artist || "Unknown Artist",
+                tracks: tracks,
+                artworkUri: item.uri || "",
+                trackCount: item.trackCount || tracks.length,
+                year: item.year || ""
+            }
+        })
+    }
+
+    function openAlbum(album) {
+        selectedAlbum = album.album
+        selectedAlbumArtist = album.artist
+        selectedTracks = album.tracks
+        albumPage.visible = true
+    }
+
+    function closeAlbum() {
+        albumPage.visible = false
+        selectedAlbum = ""
+        selectedAlbumArtist = ""
+        selectedTracks = []
+    }
+
+    Component.onCompleted: rebuildAlbums()
+
+    Connections {
+        target: mpd
+
+        function onAlbumsChanged() {
+            window.rebuildAlbums()
+        }
+    }
+
+    // The remaining interface continues in Part 2.
+
+    property var filteredAlbums: {
+        let query = searchText.toLowerCase().trim()
+
+        if (query === "")
+            return albums
+
+        return albums.filter(function(item) {
+            return item.album.toLowerCase().includes(query) ||
+                   item.artist.toLowerCase().includes(query)
+        })
+    }
+
+    ColumnLayout {
+        anchors.fill: parent
+        spacing: 0
+
+        // Top application header
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 66
+            color: "#202329"
+            border.color: "#343741"
+            border.width: 0
+
+            RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: 24
+                anchors.rightMargin: 24
+                spacing: 18
+
+                Text {
+                    text: "MPD"
+                    color: window.accentColor
+                    font.pixelSize: 25
+                    font.bold: true
+                }
+
+                Text {
+                    text: "BEE"
+                    color: window.primaryText
+                    font.pixelSize: 25
+                    font.bold: true
+                    Layout.leftMargin: -16
+                }
+
+                Rectangle {
+                    width: 1
+                    Layout.fillHeight: true
+                    Layout.topMargin: 17
+                    Layout.bottomMargin: 17
+                    color: window.borderColor
+                }
+
+                Text {
+                    text: "Music Library"
+                    color: window.primaryText
+                    font.pixelSize: 15
+                    font.bold: true
+                }
+
+                Item {
+                    Layout.fillWidth: true
+                }
+
+                Rectangle {
+                    Layout.preferredWidth: 310
+                    Layout.preferredHeight: 38
+                    radius: 8
+                    color: "#17191e"
+                    border.color: searchField.activeFocus
+                                  ? window.accentColor
+                                  : window.borderColor
+
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: 12
+                        anchors.rightMargin: 10
+                        spacing: 8
+
+                        Text {
+                            text: "⌕"
+                            color: window.secondaryText
+                            font.pixelSize: 23
+                        }
+
+                        TextField {
+                            id: searchField
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+
+                            placeholderText: "Search albums or artists..."
+                            placeholderTextColor: "#777b87"
+                            color: window.primaryText
+                            font.pixelSize: 13
+
+                            background: Item {}
+
+                            onTextChanged: window.searchText = text
+
+                            Keys.onEscapePressed: {
+                                text = ""
+                                focus = false
+                            }
+                        }
+
+                        Text {
+                            text: "×"
+                            color: window.secondaryText
+                            font.pixelSize: 19
+                            visible: searchField.text.length > 0
+
+                            MouseArea {
+                                anchors.fill: parent
+                                onClicked: searchField.text = ""
+                                cursorShape: Qt.PointingHandCursor
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Library heading and album count
+        RowLayout {
+            Layout.fillWidth: true
+            Layout.topMargin: 24
+            Layout.leftMargin: 26
+            Layout.rightMargin: 26
+            Layout.bottomMargin: 16
+            spacing: 12
+
+            ColumnLayout {
+                spacing: 4
+
+                Text {
+                    text: "Albums"
+                    color: window.primaryText
+                    font.pixelSize: 23
+                    font.bold: true
+                }
+
+                Text {
+                    text: window.filteredAlbums.length +
+                          " albums  ·  " +
+                          mpd.library.length + " tracks"
+                    color: window.secondaryText
+                    font.pixelSize: 12
+                }
+            }
+
+            Item {
+                Layout.fillWidth: true
+            }
+
+            Text {
+                text: "ALBUM CATALOGUE"
+                color: window.secondaryText
+                font.pixelSize: 10
+                font.letterSpacing: 1.5
+            }
+        }
+
+        // Virtualized album grid.
+        // GridView creates delegates as they become visible rather
+        // than constructing a visual item for every album at once.
+        GridView {
+            id: albumGrid
+
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+
+            Layout.leftMargin: 16
+            Layout.rightMargin: 16
+            Layout.bottomMargin: 10
+
+            clip: true
+            cellWidth: Math.max(
+                155,
+                Math.min(225, width / Math.max(1, Math.floor(width / 195)))
+            )
+            cellHeight: cellWidth + 60
+
+            model: window.filteredAlbums
+
+            boundsBehavior: Flickable.StopAtBounds
+            flickDeceleration: 3500
+            maximumFlickVelocity: 4500
+            cacheBuffer: height
+
+            ScrollBar.vertical: ScrollBar {
+                policy: ScrollBar.AsNeeded
+            }
+
+            delegate: Item {
+                id: albumDelegate
+
+                required property var modelData
+                required property int index
+
+                width: albumGrid.cellWidth
+                height: albumGrid.cellHeight
+
+                property bool hovered: false
+
+                Column {
+                    anchors.fill: parent
+                    anchors.margins: 8
+                    spacing: 8
+
+                    Item {
+                        id: coverFrame
+
+                        width: parent.width
+                        height: width
+
+                        Rectangle {
+                            anchors.fill: parent
+                            radius: 5
+                            color: "#30333b"
+                            border.color: albumDelegate.hovered
+                                          ? window.accentColor
+                                          : "#3b3e47"
+
+                            Image {
+                                id: coverImage
+
+                                anchors.fill: parent
+                                anchors.margins: 1
+
+                                source: modelData.artworkUri
+                                        ? mpd.artworkUrlForUri(
+                                              modelData.artworkUri)
+                                        : ""
+
+                                asynchronous: true
+                                cache: true
+                                sourceSize.width: 320
+                                sourceSize.height: 320
+                                fillMode: Image.PreserveAspectCrop
+                                smooth: true
+
+                                onStatusChanged: {
+                                    if (status === Image.Error)
+                                        console.warn(
+                                            "Album artwork unavailable:",
+                                            modelData.album
+                                        )
+                                }
+                            }
+
+                            // Fallback shown when artwork is missing.
+                            Column {
+                                anchors.centerIn: parent
+                                spacing: 8
+                                visible: coverImage.status !== Image.Ready
+
+                                Text {
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    text: "♫"
+                                    color: "#686d7a"
+                                    font.pixelSize: 43
+                                }
+
+                                Text {
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    width: coverFrame.width - 20
+                                    text: modelData.album
+                                    color: "#a8abb5"
+                                    font.pixelSize: 11
+                                    horizontalAlignment: Text.AlignHCenter
+                                    wrapMode: Text.Wrap
+                                    maximumLineCount: 2
+                                    elide: Text.ElideRight
+                                }
+                            }
+
+                            Rectangle {
+                                anchors.fill: parent
+                                radius: 5
+                                color: "#000000"
+                                opacity: albumDelegate.hovered ? 0.20 : 0
+                            }
+
+                            Rectangle {
+                                anchors.right: parent.right
+                                anchors.bottom: parent.bottom
+                                anchors.margins: 10
+                                width: 38
+                                height: 38
+                                radius: 19
+                                color: window.accentColor
+                                visible: albumDelegate.hovered
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: "▶"
+                                    color: "#17191e"
+                                    font.pixelSize: 16
+                                }
+                            }
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+
+                            onEntered: albumDelegate.hovered = true
+                            onExited: albumDelegate.hovered = false
+
+                            onClicked: window.openAlbum(
+                                albumDelegate.modelData
+                            )
+                        }
+                    }
+
+                    Text {
+                        width: parent.width
+                        text: albumDelegate.modelData.album
+                        color: window.primaryText
+                        font.pixelSize: 13
+                        font.weight: Font.DemiBold
+                        elide: Text.ElideRight
+                    }
+
+                    Text {
+                        width: parent.width
+                        text: albumDelegate.modelData.artist
+                        color: window.secondaryText
+                        font.pixelSize: 11
+                        elide: Text.ElideRight
+                    }
+                }
+            }
+
+            // Empty library/search state
+            Text {
+                anchors.centerIn: parent
+                visible: albumGrid.count === 0
+                text: mpd.library.length === 0
+                      ? "Your music library is empty."
+                      : "No albums match your search."
+                color: window.secondaryText
+                font.pixelSize: 15
+            }
+        }
+
+        // Bottom status bar
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 32
+            color: "#202329"
+            border.color: window.borderColor
+            border.width: 0
+
+            RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: 20
+                anchors.rightMargin: 20
+                spacing: 8
+
+                Rectangle {
+                    width: 7
+                    height: 7
+                    radius: 4
+                    color: mpd.connectionStatus === "Connected"
+                           ? "#73c991" : "#e5a84b"
+                }
+
+                Text {
+                    text: mpd.connectionStatus
+                    color: window.secondaryText
+                    font.pixelSize: 11
+                }
+
+                Item {
+                    Layout.fillWidth: true
+                }
+
+                Text {
+                    text: "MPD MUSIC PLAYER"
+                    color: "#686c78"
+                    font.pixelSize: 10
+                    font.letterSpacing: 1
+                }
+            }
+        }
+    }
+
+    // Album details and track list are added in Part 3.
+
+    // Album detail view
+    Rectangle {
+        id: albumPage
+
+        anchors.fill: parent
+        anchors.topMargin: 66
+        anchors.bottomMargin: 82
+
+        z: 10
+        visible: false
+        color: window.backgroundColor
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 28
+            spacing: 22
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 14
+
+                Button {
+                    text: "‹   Library"
+                    onClicked: window.closeAlbum()
+
+                    contentItem: Text {
+                        text: parent.text
+                        color: window.primaryText
+                        font.pixelSize: 13
+                        verticalAlignment: Text.AlignVCenter
+                    }
+
+                    background: Rectangle {
+                        radius: 6
+                        color: parent.hovered ? "#343741" : window.panelColor
+                        border.color: window.borderColor
+                    }
+
+                    implicitHeight: 38
+                    leftPadding: 14
+                    rightPadding: 14
+                }
+
+                Item {
+                    Layout.fillWidth: true
+                }
+
+                Text {
+                    text: "ALBUM DETAILS"
+                    color: window.secondaryText
+                    font.pixelSize: 10
+                    font.letterSpacing: 1.5
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 230
+                spacing: 28
+
+                Rectangle {
+                    Layout.preferredWidth: 210
+                    Layout.preferredHeight: 210
+                    radius: 6
+                    color: window.cardColor
+                    clip: true
+
+                    Image {
+                        id: detailArtwork
+                        anchors.fill: parent
+
+                        source: {
+                            if (!window.selectedTracks.length)
+                                return ""
+
+                            return mpd.artworkUrlForUri(
+                                window.selectedTracks[0].uri || ""
+                            )
+                        }
+
+                        asynchronous: true
+                        cache: true
+                        sourceSize.width: 500
+                        sourceSize.height: 500
+                        fillMode: Image.PreserveAspectCrop
+                    }
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: "♫"
+                        color: "#777b87"
+                        font.pixelSize: 56
+                        visible: detailArtwork.status !== Image.Ready
+                    }
+                }
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    spacing: 9
+
+                    Text {
+                        text: window.selectedAlbum
+                        color: window.primaryText
+                        font.pixelSize: 28
+                        font.bold: true
+                        wrapMode: Text.Wrap
+                        Layout.fillWidth: true
+                    }
+
+                    Text {
+                        text: window.selectedAlbumArtist
+                        color: window.accentColor
+                        font.pixelSize: 16
+                        Layout.fillWidth: true
+                        elide: Text.ElideRight
+                    }
+
+                    Text {
+                        text: window.selectedTracks.length + " tracks"
+                        color: window.secondaryText
+                        font.pixelSize: 12
+                    }
+
+                    Item {
+                        Layout.fillHeight: true
+                    }
+
+                    RowLayout {
+                        spacing: 10
+
+                        Button {
+                            text: "▶  Play album"
+
+                            onClicked: {
+                                let uris = []
+
+                                for (let i = 0;
+                                     i < window.selectedTracks.length;
+                                     ++i) {
+                                    uris.push(
+                                        window.selectedTracks[i].uri
+                                    )
+                                }
+
+                                mpd.playAlbum(uris)
+                            }
+
+                            contentItem: Text {
+                                text: parent.text
+                                color: "#17191e"
+                                font.pixelSize: 13
+                                font.bold: true
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                            }
+
+                            background: Rectangle {
+                                radius: 7
+                                color: parent.hovered
+                                       ? "#f0bd69" : window.accentColor
+                            }
+
+                            implicitHeight: 40
+                            leftPadding: 18
+                            rightPadding: 18
+                        }
+
+                        Button {
+                            text: "+  Add album to queue"
+
+                            onClicked: {
+                                for (let i = 0;
+                                     i < window.selectedTracks.length;
+                                     ++i) {
+                                    mpd.addUri(
+                                        window.selectedTracks[i].uri
+                                    )
+                                }
+                            }
+
+                            contentItem: Text {
+                                text: parent.text
+                                color: window.primaryText
+                                font.pixelSize: 12
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                            }
+
+                            background: Rectangle {
+                                radius: 7
+                                color: parent.hovered
+                                       ? "#383b44" : window.panelColor
+                                border.color: window.borderColor
+                            }
+
+                            implicitHeight: 40
+                            leftPadding: 14
+                            rightPadding: 14
+                        }
+                    }
+                }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                height: 1
+                color: window.borderColor
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 12
+
+                Text {
+                    text: "TRACK"
+                    color: window.secondaryText
+                    font.pixelSize: 10
+                    font.bold: true
+                    font.letterSpacing: 1
+                    Layout.preferredWidth: 42
+                }
+
+                Text {
+                    text: "TITLE"
+                    color: window.secondaryText
+                    font.pixelSize: 10
+                    font.bold: true
+                    font.letterSpacing: 1
+                    Layout.fillWidth: true
+                }
+
+                Text {
+                    text: "ARTIST"
+                    color: window.secondaryText
+                    font.pixelSize: 10
+                    font.bold: true
+                    font.letterSpacing: 1
+                    Layout.preferredWidth: 190
+                }
+            }
+
+            // Part 3B continues inside this ColumnLayout.
+
+            ListView {
+                id: trackList
+
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+
+                clip: true
+                spacing: 2
+                model: window.selectedTracks
+
+                ScrollBar.vertical: ScrollBar {
+                    policy: ScrollBar.AsNeeded
+                }
+
+                delegate: Rectangle {
+                    id: trackRow
+
+                    required property var modelData
+                    required property int index
+
+                    width: trackList.width
+                    height: 43
+
+                    radius: 4
+                    color: trackMouse.containsMouse
+                           ? "#30333b" : "transparent"
+
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: 12
+                        anchors.rightMargin: 12
+                        spacing: 12
+
+                        Text {
+                            Layout.preferredWidth: 30
+                            text: String(trackRow.index + 1).padStart(2, "0")
+                            color: window.secondaryText
+                            font.pixelSize: 12
+                        }
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: trackRow.modelData.title ||
+                                  trackRow.modelData.uri ||
+                                  "Unknown track"
+
+                            color: window.primaryText
+                            font.pixelSize: 12
+                            elide: Text.ElideRight
+                        }
+
+                        Text {
+                            Layout.preferredWidth: 190
+                            text: trackRow.modelData.artist ||
+                                  window.selectedAlbumArtist
+
+                            color: window.secondaryText
+                            font.pixelSize: 11
+                            elide: Text.ElideRight
+                        }
+                    }
+
+                    MouseArea {
+                        id: trackMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+
+                        onClicked: mpd.playUri(
+                            trackRow.modelData.uri
+                        )
+
+                        acceptedButtons: Qt.LeftButton
+                    }
+                }
+            }
+        }
+    }
+
+    // Persistent playback bar
+    Rectangle {
+        id: playbackBar
+
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+
+        height: 82
+        z: 20
+
+        color: "#202329"
+        border.color: window.borderColor
+
+        ColumnLayout {
+            anchors.fill: parent
+            spacing: 0
+
+            Slider {
+                id: progressSlider
+
+                Layout.fillWidth: true
+                Layout.preferredHeight: 5
+
+                leftPadding: 0
+                rightPadding: 0
+                topPadding: 0
+                bottomPadding: 0
+
+                from: 0
+                to: Math.max(1, mpd.duration)
+                value: Math.min(mpd.elapsed, to)
+
+                onPressedChanged: {
+                    if (!pressed)
+                        mpd.seek(Math.round(value))
+                }
+
+                background: Rectangle {
+                    x: progressSlider.leftPadding
+                    y: progressSlider.topPadding
+                    width: progressSlider.availableWidth
+                    height: 3
+                    color: "#3a3d46"
+
+                    Rectangle {
+                        width: progressSlider.visualPosition * parent.width
+                        height: parent.height
+                        color: window.accentColor
+                    }
+                }
+
+                handle: Rectangle {
+                    width: 10
+                    height: 10
+                    radius: 5
+                    color: window.accentColor
+                    x: progressSlider.leftPadding +
+                       progressSlider.visualPosition *
+                       (progressSlider.availableWidth - width)
+                    y: -3
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+
+                Layout.leftMargin: 22
+                Layout.rightMargin: 22
+                spacing: 18
+
+                RowLayout {
+                    Layout.preferredWidth: 280
+                    spacing: 12
+
+                    Rectangle {
+                        width: 47
+                        height: 47
+                        radius: 4
+                        color: window.cardColor
+                        clip: true
+
+                        Image {
+                            anchors.fill: parent
+
+                            source: mpd.currentArtworkUrl || ""
+                            asynchronous: true
+                            cache: true
+                            sourceSize.width: 100
+                            sourceSize.height: 100
+                            fillMode: Image.PreserveAspectCrop
+                        }
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: "♫"
+                            color: "#777b87"
+                            font.pixelSize: 22
+                            visible: !mpd.currentArtworkUrl
+                        }
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 4
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: mpd.title || "Nothing playing"
+                            color: window.primaryText
+                            font.pixelSize: 12
+                            font.bold: true
+                            elide: Text.ElideRight
+                        }
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: mpd.artist || "MPD"
+                            color: window.secondaryText
+                            font.pixelSize: 11
+                            elide: Text.ElideRight
+                        }
+                    }
+                }
+
+                Item {
+                    Layout.fillWidth: true
+                }
+
+                RowLayout {
+                    spacing: 12
+
+                    Button {
+                        text: "⏮"
+                        onClicked: mpd.previous()
+
+                        contentItem: Text {
+                            text: parent.text
+                            color: window.primaryText
+                            font.pixelSize: 19
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+
+                        background: Rectangle {
+                            color: parent.hovered
+                                   ? "#343741" : "transparent"
+                            radius: 18
+                        }
+
+                        implicitWidth: 36
+                        implicitHeight: 36
+                    }
+
+                    Button {
+                        text: mpd.state === "play" ? "Ⅱ" : "▶"
+                        onClicked: mpd.pause()
+
+                        contentItem: Text {
+                            text: parent.text
+                            color: "#17191e"
+                            font.pixelSize: 17
+                            font.bold: true
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+
+                        background: Rectangle {
+                            width: 40
+                            height: 40
+                            radius: 20
+                            color: window.accentColor
+                        }
+
+                        implicitWidth: 40
+                        implicitHeight: 40
+                    }
+
+                    Button {
+                        text: "⏭"
+                        onClicked: mpd.next()
+
+                        contentItem: Text {
+                            text: parent.text
+                            color: window.primaryText
+                            font.pixelSize: 19
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+
+                        background: Rectangle {
+                            color: parent.hovered
+                                   ? "#343741" : "transparent"
+                            radius: 18
+                        }
+
+                        implicitWidth: 36
+                        implicitHeight: 36
+                    }
+                }
+
+                Item {
+                    Layout.fillWidth: true
+                }
+
+                RowLayout {
+                    Layout.preferredWidth: 190
+                    spacing: 10
+
+                    Text {
+                        text: "VOL"
+                        color: window.secondaryText
+                        font.pixelSize: 10
+                        font.bold: true
+                    }
+
+                    Slider {
+                        id: volumeSlider
+
+                        Layout.fillWidth: true
+                        from: 0
+                        to: 100
+                        value: mpd.volume
+
+                        onMoved: mpd.setVolume(Math.round(value))
+                    }
+
+                    Text {
+                        text: Math.round(volumeSlider.value) + "%"
+                        color: window.secondaryText
+                        font.pixelSize: 11
+                        Layout.preferredWidth: 34
+                    }
+                }
+            }
+        }
+    }
+
+    // Part 4 adds the remaining keyboard shortcuts and closes the root item.
+
+    // Keyboard shortcuts
+    Shortcut {
+        sequence: "Space"
+        onActivated: mpd.pause()
+    }
+
+    Shortcut {
+        sequence: "Ctrl+Right"
+        onActivated: mpd.next()
+    }
+
+    Shortcut {
+        sequence: "Ctrl+Left"
+        onActivated: mpd.previous()
+    }
+
+    Shortcut {
+        sequence: "Escape"
+        onActivated: window.closeAlbum()
+    }
+}
