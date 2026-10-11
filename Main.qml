@@ -23,6 +23,34 @@ ApplicationWindow {
     property color secondaryText: "#9b9da8"
     property color borderColor: "#343741"
 
+    // Theme customization state
+    property bool themeMenuOpen: false
+    property string activeTheme: "default"
+    property int blurAmount: 8
+    property bool showBlur: false
+
+    function applyTheme(name, bg, panel, card, accent, primary, secondary, border) {
+        backgroundColor = bg
+        panelColor = panel
+        cardColor = card
+        accentColor = accent
+        primaryText = primary
+        secondaryText = secondary
+        borderColor = border
+        activeTheme = name
+    }
+
+    function applyCustomTheme(bg, panel, card, accent, primary, secondary, border) {
+        backgroundColor = bg
+        panelColor = panel
+        cardColor = card
+        accentColor = accent
+        primaryText = primary
+        secondaryText = secondary
+        borderColor = border
+        activeTheme = "custom"
+    }
+
     property string searchText: ""
     property string selectedAlbum: ""
     property string selectedAlbumArtist: ""
@@ -30,7 +58,7 @@ ApplicationWindow {
 
     property var albums: []
     property int currentPage: 0
-    property int pageSize: 25
+    property int pageSize: 27
     property string sortBy: "name"
 
     function normalizeText(value) {
@@ -121,6 +149,10 @@ ApplicationWindow {
     }
 
     property int totalPages: Math.ceil(filteredAlbums.length / pageSize)
+
+
+
+
 
     ColumnLayout {
         anchors.fill: parent
@@ -228,6 +260,22 @@ ApplicationWindow {
                             }
                         }
                     }
+                }
+
+                // Theme button
+                Button {
+                    text: "🎨"
+                    onClicked: themeMenuOpen = !themeMenuOpen
+                    contentItem: Text {
+                        text: parent.text
+                        font.pixelSize: 18
+                    }
+                    background: Rectangle {
+                        radius: 6
+                        color: parent.hovered ? "#343741" : "transparent"
+                    }
+                    implicitWidth: 38
+                    implicitHeight: 38
                 }
             }
         }
@@ -595,6 +643,362 @@ ApplicationWindow {
                     color: "#686c78"
                     font.pixelSize: 10
                     font.letterSpacing: 1
+                }
+            }
+        }
+    }
+
+    // Theme customization popup
+    Popup {
+        id: themePopup
+
+        visible: window.themeMenuOpen
+        x: window.width - 420
+        y: 76
+        width: 400
+        height: 560
+        modal: false
+        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+
+        onClosed: window.themeMenuOpen = false
+
+        background: Rectangle {
+            radius: 10
+            color: window.panelColor
+            border.color: window.borderColor
+            border.width: 2
+        }
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 16
+            spacing: 14
+
+            // Header
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+
+                Text {
+                    text: "🎨 Theme Settings"
+                    color: window.primaryText
+                    font.pixelSize: 15
+                    font.bold: true
+                }
+
+                Item { Layout.fillWidth: true }
+
+                Button {
+                    text: "×"
+                    onClicked: themePopup.close()
+                    contentItem: Text {
+                        text: parent.text
+                        color: window.secondaryText
+                        font.pixelSize: 14
+                    }
+                    background: Item {}
+                    implicitWidth: 28
+                    implicitHeight: 28
+                }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                height: 1
+                color: window.borderColor
+            }
+
+            // Preset themes
+            Text {
+                text: "Quick Themes"
+                color: window.secondaryText
+                font.pixelSize: 11
+                font.bold: true
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 6
+
+                Button {
+                    Layout.fillWidth: true
+                    text: "Default"
+                    onClicked: {
+                        window.applyTheme("default", "#17191e", "#202329", "#272a31", "#e5a84b", "#f0f0f3", "#9b9da8", "#343741")
+                        window.showBlur = false
+                    }
+                    contentItem: Text {
+                        text: parent.text
+                        color: window.activeTheme === "default" ? window.accentColor : window.primaryText
+                        font.pixelSize: 11
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                    background: Rectangle {
+                        radius: 5
+                        color: window.activeTheme === "default" ? "#383b44" : window.cardColor
+                        border.color: window.activeTheme === "default" ? window.accentColor : "transparent"
+                        border.width: 1
+                    }
+                    implicitHeight: 28
+                }
+
+                Button {
+                    Layout.fillWidth: true
+                    text: "Midnight Blue"
+                    onClicked: {
+                        window.applyTheme("midnight", "#0d1b2a", "#1b2838", "#253649", "#4da6ff", "#eef2f7", "#8fa3b8", "#2d4056")
+                        window.showBlur = false
+                    }
+                    contentItem: Text {
+                        text: parent.text
+                        color: window.activeTheme === "midnight" ? window.accentColor : window.primaryText
+                        font.pixelSize: 11
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                    background: Rectangle {
+                        radius: 5
+                        color: window.activeTheme === "midnight" ? "#383b44" : window.cardColor
+                        border.color: window.activeTheme === "midnight" ? window.accentColor : "transparent"
+                        border.width: 1
+                    }
+                    implicitHeight: 28
+                }
+
+                Button {
+                    Layout.fillWidth: true
+                    text: "Warm Sand"
+                    onClicked: {
+                        window.applyTheme("sand", "#f5efe6", "#eae0d3", "#d9cbb8", "#c47f17", "#2c2416", "#7a6b54", "#cfc0a8")
+                        window.showBlur = false
+                    }
+                    contentItem: Text {
+                        text: parent.text
+                        color: window.activeTheme === "sand" ? window.accentColor : window.primaryText
+                        font.pixelSize: 11
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                    background: Rectangle {
+                        radius: 5
+                        color: window.activeTheme === "sand" ? "#383b44" : window.cardColor
+                        border.color: window.activeTheme === "sand" ? window.accentColor : "transparent"
+                        border.width: 1
+                    }
+                    implicitHeight: 28
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 6
+
+                Button {
+                    Layout.fillWidth: true
+                    text: "Transparent"
+                    onClicked: {
+                        window.applyTheme("transparent", "transparent", "#202329", "#272a31", "#e5a84b", "#f0f0f3", "#9b9da8", "#343741")
+                        window.showBlur = false
+                    }
+                    contentItem: Text {
+                        text: parent.text
+                        color: window.activeTheme === "frosted" ? window.accentColor : window.primaryText
+                        font.pixelSize: 11
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                    background: Rectangle {
+                        radius: 5
+                        color: window.activeTheme === "frosted" ? "#383b44" : window.cardColor
+                        border.color: window.activeTheme === "frosted" ? window.accentColor : "transparent"
+                        border.width: 1
+                    }
+                    implicitHeight: 28
+                }
+
+                Button {
+                    Layout.fillWidth: true
+                    text: "Custom..."
+                    onClicked: customSection.visible = !customSection.visible
+                    contentItem: Text {
+                        text: parent.text
+                        color: window.activeTheme === "custom" ? window.accentColor : window.primaryText
+                        font.pixelSize: 11
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                    background: Rectangle {
+                        radius: 5
+                        color: window.activeTheme === "custom" ? "#383b44" : window.cardColor
+                        border.color: window.activeTheme === "custom" ? window.accentColor : "transparent"
+                        border.width: 1
+                    }
+                    implicitHeight: 28
+                }
+            }
+
+
+
+            // Custom color inputs
+            ColumnLayout {
+                id: customSection
+                Layout.fillWidth: true
+                spacing: 6
+                visible: false
+
+                Text {
+                    text: "Custom Colors (hex)"
+                    color: window.secondaryText
+                    font.pixelSize: 11
+                    font.bold: true
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 6
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 2
+
+                        Text { text: "Background"; color: window.secondaryText; font.pixelSize: 9 }
+                        TextField {
+                            id: customBg
+                            placeholderText: "#17191e"
+                            color: window.primaryText
+                            font.pixelSize: 10
+                            background: Rectangle { radius: 4; color: window.cardColor; border.color: window.borderColor }
+                        }
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 2
+
+                        Text { text: "Panel"; color: window.secondaryText; font.pixelSize: 9 }
+                        TextField {
+                            id: customPanel
+                            placeholderText: "#202329"
+                            color: window.primaryText
+                            font.pixelSize: 10
+                            background: Rectangle { radius: 4; color: window.cardColor; border.color: window.borderColor }
+                        }
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 6
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 2
+
+                        Text { text: "Card"; color: window.secondaryText; font.pixelSize: 9 }
+                        TextField {
+                            id: customCard
+                            placeholderText: "#272a31"
+                            color: window.primaryText
+                            font.pixelSize: 10
+                            background: Rectangle { radius: 4; color: window.cardColor; border.color: window.borderColor }
+                        }
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 2
+
+                        Text { text: "Accent"; color: window.secondaryText; font.pixelSize: 9 }
+                        TextField {
+                            id: customAccent
+                            placeholderText: "#e5a84b"
+                            color: window.primaryText
+                            font.pixelSize: 10
+                            background: Rectangle { radius: 4; color: window.cardColor; border.color: window.borderColor }
+                        }
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 6
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 2
+
+                        Text { text: "Text"; color: window.secondaryText; font.pixelSize: 9 }
+                        TextField {
+                            id: customPrimary
+                            placeholderText: "#f0f0f3"
+                            color: window.primaryText
+                            font.pixelSize: 10
+                            background: Rectangle { radius: 4; color: window.cardColor; border.color: window.borderColor }
+                        }
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 2
+
+                        Text { text: "Subtle"; color: window.secondaryText; font.pixelSize: 9 }
+                        TextField {
+                            id: customSecondary
+                            placeholderText: "#9b9da8"
+                            color: window.primaryText
+                            font.pixelSize: 10
+                            background: Rectangle { radius: 4; color: window.cardColor; border.color: window.borderColor }
+                        }
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 6
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 2
+
+                        Text { text: "Border"; color: window.secondaryText; font.pixelSize: 9 }
+                        TextField {
+                            id: customBorder
+                            placeholderText: "#343741"
+                            color: window.primaryText
+                            font.pixelSize: 10
+                            background: Rectangle { radius: 4; color: window.cardColor; border.color: window.borderColor }
+                        }
+                    }
+
+                    Item { Layout.fillWidth: true }
+
+                    Button {
+                        text: "Apply"
+                        onClicked: {
+                            let bg = customBg.text || window.backgroundColor
+                            let panel = customPanel.text || window.panelColor
+                            let card = customCard.text || window.cardColor
+                            let accent = customAccent.text || window.accentColor
+                            let primary = customPrimary.text || window.primaryText
+                            let secondary = customSecondary.text || window.secondaryText
+                            let border = customBorder.text || window.borderColor
+
+                            window.applyCustomTheme(bg, panel, card, accent, primary, secondary, border)
+                        }
+                        contentItem: Text {
+                            text: parent.text
+                            color: "#17191e"
+                            font.pixelSize: 10
+                            font.bold: true
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                        background: Rectangle { radius: 4; color: window.accentColor }
+                        implicitHeight: 26
+                        leftPadding: 10
+                        rightPadding: 10
+                    }
                 }
             }
         }
